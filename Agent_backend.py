@@ -37,13 +37,12 @@ embeddings = HuggingFaceEmbeddings(
     model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 
-# ------------------
+# -------------------
 # FAISS persistence
 # -------------------
  
 FAISS_DIR = "faiss_indexes"
 os.makedirs(FAISS_DIR, exist_ok=True)
-
 
 # -------------------
 # PDF retriever store
@@ -51,24 +50,26 @@ os.makedirs(FAISS_DIR, exist_ok=True)
  
 _THREAD_RETRIEVERS: Dict[str, Any] = {}
 _THREAD_METADATA: Dict[str, dict] = {}
- 
- 
-def _get_retriever(thread_id: Optional[str]):
+
+
+def _get_retriever(therad_id: Optional[str]):
     """
-    Return the retriever for this thread.
-    First checks in-memory cache; if missing, tries to load
+    Returning the retriever for this thread.
+    First checking in-memory cache; if missing, tries to load
     the persisted FAISS index from disk so the retriever
     survives a backend restart.
     """
-    if not thread_id:
+
+    if not therad_id:
         return None
- 
-    # 1. In-memory cache hit
-    if thread_id in _THREAD_RETRIEVERS:
-        return _THREAD_RETRIEVERS[thread_id]
- 
-    # 2. Disk fallback — reload persisted FAISS index
-    index_path = os.path.join(FAISS_DIR, str(thread_id))
+    
+    # 1. In-memory chache hit
+    if therad_id in _THREAD_RETRIEVERS:
+        return _THREAD_RETRIEVERS[therad_id]
+    
+    # 2. Disk fallback -> reloading persisted FAISS index
+    index_path = os.path.join(FAISS_DIR, str(therad_id))
+
     if os.path.exists(index_path):
         try:
             vector_store = FAISS.load_local(
@@ -80,19 +81,19 @@ def _get_retriever(thread_id: Optional[str]):
                 search_type="mmr",
                 search_kwargs={"k": 4, "fetch_k": 20},
             )
-            _THREAD_RETRIEVERS[thread_id] = retriever
+            _THREAD_RETRIEVERS[therad_id] = retriever
             return retriever
         except Exception:
             pass
- 
+
     return None
- 
- 
+
 def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None):
- 
+
     if not file_bytes:
         raise ValueError("No bytes received for ingestion.")
- 
+    
+    # Saves the uploaded pdf bytes as a real .pdf file so it can be used by PyPDFLoader
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
         temp_file.write(file_bytes)
         temp_path = temp_file.name
@@ -106,7 +107,7 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             chunk_overlap=200,
             separators=["\n\n", "\n", " ", ""],
         )
- 
+
         chunks = splitter.split_documents(docs)
  
         # ---------- CLEAN TEXT ----------
@@ -119,14 +120,16 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             if text is None:
                 continue
  
-            # Ensure pure unicode string for tokenizer compatibility
+            # Removing spaces
             text = str(text).strip()
-            # Remove null bytes and non-UTF-8 characters that break the tokenizer
+
+            # Removing null bytes and non-UTF-8 characters that break the tokenizer
             text = text.encode("utf-8", errors="ignore").decode("utf-8", errors="ignore")
-            # Strip control characters (except newlines and tabs) that cause TextEncodeInput errors
+
+            # Striping control characters (except newlines and tabs) that cause TextEncodeInput errors
             text = "".join(ch for ch in text if ch >= " " or ch in "\n\t")
             text = text.strip()
- 
+
             if len(text) == 0:
                 continue
  
@@ -135,7 +138,7 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
  
         if len(texts) == 0:
             raise ValueError("No valid text extracted from the PDF")
- 
+        
         # ---------- VECTOR STORE ----------
         vector_store = FAISS.from_texts(
             texts=texts,
@@ -143,11 +146,11 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             metadatas=metadatas,
         )
  
-        # Persist FAISS index to disk so it survives restarts
+        # Saving FAISS index to disk so it survives restarts
         index_path = os.path.join(FAISS_DIR, str(thread_id))
         vector_store.save_local(index_path)
  
-        # Use MMR retrieval for diverse, non-redundant chunks
+        # Using MMR retrieval for diverse, non-redundant chunks
         retriever = vector_store.as_retriever(
             search_type="mmr",
             search_kwargs={"k": 4, "fetch_k": 20},
@@ -172,8 +175,9 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
             os.remove(temp_path)
         except OSError:
             pass
- 
- 
+
+
+
 # -------------------
 # Tools
 # -------------------
@@ -184,7 +188,7 @@ search_tool = DuckDuckGoSearchRun(region="us-en")
 @tool
 def calculator(first_num: float, second_num: float, operation: str) -> dict:
     """
-    Perform a basic arithmetic operation on two numbers.
+    Performing a basic arithmetic operation on two numbers.
     Supported operations: add, sub, mul, div
     """
     try:
@@ -225,10 +229,14 @@ def get_stock_price(symbol: str) -> dict:
             f"https://www.alphavantage.co/query"
             f"?function=GLOBAL_QUOTE&symbol={symbol}&apikey={API_KEY}"
         )
+
+        # Calling API
         r = requests.get(url, timeout=10)
         r.raise_for_status()
+
         data = r.json()
- 
+
+        # Extracting Stock data
         quote = data.get("Global Quote", {})
         if not quote:
             return {
@@ -269,7 +277,7 @@ def purchase_stock(symbol: str, quantity: int) -> dict:
     and wait for a human decision ("yes" / anything else).
     """
  
-    # This pauses the graph and returns control to the caller
+    # This pauses the graph and returns control to the owner.
     decision = interrupt(f"Approve buying {quantity} shares of {symbol}? (yes/no)")
  
     if isinstance(decision, str) and decision.lower() == "yes":
@@ -333,7 +341,7 @@ def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
  
     result = retriever.invoke(query)
  
-    # Include page citations so users can verify the source
+    # Including page citations so users can verify the source
     context = [
         f"[Page {doc.metadata.get('page', '?')}]: {doc.page_content}"
         for doc in result
@@ -359,7 +367,7 @@ llm_with_tools = llm.bind_tools(tools)
  
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
-    thread_id: Optional[str]           # no more config hacks inside nodes
+    thread_id: Optional[str]
     uploaded_filename: Optional[str]   # track which document is loaded
     tool_call_count: int               # guard against infinite tool loops
  
@@ -432,145 +440,3 @@ def chat_node(state: ChatState, config=None):
  
  
 tool_node = ToolNode(tools)
- 
-# -------------------
-# Checkpointer
-# -------------------
- 
-conn = sqlite3.connect("chatbot.db", check_same_thread=False)
- 
-checkpointer = SqliteSaver(conn=conn)
- 
-# -------------------
-# Graph
-# -------------------
- 
-graph = StateGraph(ChatState)
- 
-graph.add_node("chat_node", chat_node)
- 
-graph.add_node("tools", tool_node)
- 
-graph.add_edge(START, "chat_node")
- 
-graph.add_conditional_edges("chat_node", tools_condition)
- 
-graph.add_edge("tools", "chat_node")
- 
-chatbot = graph.compile(checkpointer=checkpointer)
- 
-# -------------------
-# Helpers
-# -------------------
- 
- 
-def retrieve_all_threads():
- 
-    all_threads = set()
- 
-    for checkpoint in checkpointer.list(None):
-        all_threads.add(checkpoint.config["configurable"]["thread_id"])
- 
-    return list(all_threads)
- 
- 
-def thread_has_document(thread_id: str) -> bool:
- 
-    return str(thread_id) in _THREAD_RETRIEVERS
- 
- 
-def thread_document_metadata(thread_id: str) -> dict:
- 
-    return _THREAD_METADATA.get(str(thread_id), {})
- 
- 
-def get_pending_interrupt(thread_id: str) -> str | None:
-    """
-    Returns the interrupt message if the thread is currently paused
-    at a human-in-the-loop checkpoint, otherwise None.
-    """
-    config = {"configurable": {"thread_id": thread_id}}
-    state = chatbot.get_state(config)
- 
-    # LangGraph stores pending interrupts in state.tasks
-    for task in state.tasks:
-        if task.interrupts:
-            return task.interrupts[0].value  # the message string from interrupt()
-    return None
- 
- 
-def resume_with_decision(thread_id: str, decision: str) -> dict:
-    """
-    Resume a paused graph by providing the human's decision.
-    Pass decision="yes" to approve, anything else to cancel.
- 
-    Returns the assistant's final response messages.
-    """
-    config = {"configurable": {"thread_id": thread_id}}
- 
-    # Command(resume=...) feeds the decision back into interrupt()
-    events = chatbot.stream(
-        Command(resume=decision),
-        config=config,
-        stream_mode="values",
-    )
- 
-    last_state = None
-    for event in events:
-        last_state = event
- 
-    if last_state is None:
-        return {"messages": []}
- 
-    return last_state
- 
- 
-def is_thread_interrupted(thread_id: str) -> bool:
-    """
-    Quick boolean check — is this thread currently waiting for human input?
-    """
-    return get_pending_interrupt(thread_id) is not None
- 
- 
-def generate_thread_title(first_message: str) -> str:
-    """
-    Ask the LLM to produce a short (≤5 word) title for a new conversation
-    based on the user's first message. Falls back to a truncated snippet
-    if the LLM call fails.
-    """
-    try:
-        response = llm.invoke(
-            f"Give a concise title of at most 5 words for a conversation that starts with: "
-            f'"{first_message}". Reply with only the title, no punctuation.'
-        )
-        title = response.content.strip().strip('"').strip("'")
-        return title if title else first_message[:40]
-    except Exception:
-        return first_message[:40]
- 
- 
-def send_message(thread_id: str, user_input: str) -> dict:
-    """
-    Send a normal message to the chatbot (non-interrupted thread).
-    Raises RuntimeError if the thread is currently awaiting HITL approval.
-    """
-    if is_thread_interrupted(thread_id):
-        pending = get_pending_interrupt(thread_id)
-        raise RuntimeError(
-            f"Thread `{thread_id}` is awaiting human approval:\n{pending}\n"
-            "Call `resume_with_decision(thread_id, 'yes'/'no')` to continue."
-        )
- 
-    config = {"configurable": {"thread_id": thread_id}}
- 
-    events = chatbot.stream(
-        {"messages": [{"role": "user", "content": user_input}]},
-        config=config,
-        stream_mode="values",
-    )
- 
-    last_state = None
-    for event in events:
-        last_state = event
- 
-    return last_state
