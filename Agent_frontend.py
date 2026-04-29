@@ -10,7 +10,7 @@ from Agent_backend import (
     retrieve_all_threads,
     thread_document_metadata,
     generate_thread_title,
-    # ── HITL helpers ──
+    # -- HITL helpers --
     is_thread_interrupted,
     get_pending_interrupt,
     resume_with_decision,
@@ -75,7 +75,7 @@ if "awaiting_approval" not in st.session_state:
 if "pending_interrupt_msg" not in st.session_state:
     st.session_state["pending_interrupt_msg"] = None
 
-# Track whether a title has been generated for the current thread
+# Tracking whether a title has been generated for the current thread
 if "title_generated" not in st.session_state:
     st.session_state["title_generated"] = set()
 
@@ -86,7 +86,7 @@ thread_docs = st.session_state["ingested_docs"].setdefault(thread_key, {})
 threads = st.session_state["chat_threads"][::-1]
 selected_thread = None
 
-# ============================ Sidebar ============================
+# ------------------------- Sidebar -------------------------
 st.sidebar.title("LangGraph PDF Chatbot")
 st.sidebar.markdown(f"**Thread ID:** `{thread_key}`")
 
@@ -115,7 +115,7 @@ if uploaded_pdf:
                 filename=uploaded_pdf.name,
             )
             thread_docs[uploaded_pdf.name] = summary
-            status_box.update(label="✅ PDF indexed", state="complete", expanded=False)
+            status_box.update(label=" PDF indexed", state="complete", expanded=False)
 
 st.sidebar.subheader("Past conversations")
 if not threads:
@@ -127,7 +127,7 @@ else:
         if st.sidebar.button(label, key=f"side-thread-{tid}"):
             selected_thread = thread_id
 
-# ============================ Main Layout ========================
+# ------------------------- Main Layout -------------------------
 st.title("Multi Utility Chatbot")
 
 # Render chat history
@@ -136,18 +136,18 @@ for message in st.session_state["message_history"]:
     content = message["content"]
     if role == "tool":
         # Render tool messages as a collapsed info block
-        with st.expander(f"🔧 Tool result", expanded=False):
+        with st.expander(f" Tool result", expanded=False):
             st.text(content)
     else:
         with st.chat_message(role):
             st.text(content)
 
-# ================================================================
+# ---------------------------------------------------------------
 #  HITL APPROVAL BANNER
 #  Shown whenever the graph is paused waiting for human approval.
 #  Sync session state with actual graph state on every render so
 #  the banner persists even after a page re-run.
-# ================================================================
+# ---------------------------------------------------------------
 if is_thread_interrupted(thread_key):
     st.session_state["awaiting_approval"] = True
     st.session_state["pending_interrupt_msg"] = get_pending_interrupt(thread_key)
@@ -160,7 +160,7 @@ if st.session_state["awaiting_approval"]:
     col_yes, col_no = st.columns(2)
 
     with col_yes:
-        if st.button("✅ Yes, approve", use_container_width=True, type="primary"):
+        if st.button(" Yes, approve", use_container_width=True, type="primary"):
             with st.spinner("Resuming…"):
                 try:
                     final_state = resume_with_decision(thread_key, "yes")
@@ -181,7 +181,7 @@ if st.session_state["awaiting_approval"]:
             st.rerun()
 
     with col_no:
-        if st.button("❌ No, cancel", use_container_width=True):
+        if st.button(" No, cancel", use_container_width=True):
             with st.spinner("Cancelling…"):
                 try:
                     final_state = resume_with_decision(thread_key, "no")
@@ -201,9 +201,9 @@ if st.session_state["awaiting_approval"]:
             st.session_state["pending_interrupt_msg"] = None
             st.rerun()
 
-# ================================================================
+# ----------------------------------------------------------------
 #  CHAT INPUT  (disabled while awaiting approval)
-# ================================================================
+# -----------------------------------------------------------------
 user_input = st.chat_input(
     "Ask about your document or use tools",
     disabled=st.session_state["awaiting_approval"],
@@ -214,7 +214,7 @@ if user_input and not st.session_state["awaiting_approval"]:
     with st.chat_message("user"):
         st.text(user_input)
 
-    # Generate a human-readable thread title from the first message
+    # Generate a human readable thread title from the first message
     if thread_key not in st.session_state["title_generated"]:
         with st.spinner("Naming conversation…"):
             try:
@@ -222,7 +222,7 @@ if user_input and not st.session_state["awaiting_approval"]:
                 st.session_state["thread_titles"][thread_key] = title
                 st.session_state["title_generated"].add(thread_key)
             except Exception:
-                pass  # title stays as default; non-critical
+                pass  # title stays as default; non critical
 
     CONFIG = {
         "configurable": {"thread_id": thread_key},
@@ -245,11 +245,11 @@ if user_input and not st.session_state["awaiting_approval"]:
                         tool_name = getattr(message_chunk, "name", "tool")
                         if status_holder["box"] is None:
                             status_holder["box"] = st.status(
-                                f"🔧 Using `{tool_name}` …", expanded=True
+                                f" Using `{tool_name}` …", expanded=True
                             )
                         else:
                             status_holder["box"].update(
-                                label=f"🔧 Using `{tool_name}` …",
+                                label=f" Using `{tool_name}` …",
                                 state="running",
                                 expanded=True,
                             )
@@ -275,14 +275,14 @@ if user_input and not st.session_state["awaiting_approval"]:
 
         if status_holder["box"] is not None:
             status_holder["box"].update(
-                label="✅ Tool finished", state="complete", expanded=False
+                label=" Tool finished", state="complete", expanded=False
             )
 
     st.session_state["message_history"].append(
         {"role": "assistant", "content": ai_message}
     )
 
-    # If graph paused mid-stream, activate HITL banner
+    # If graph paused mid stream, activate HITL banner
     if hit_interrupt["value"]:
         st.session_state["awaiting_approval"] = True
         st.session_state["pending_interrupt_msg"] = get_pending_interrupt(thread_key)
@@ -297,9 +297,9 @@ if user_input and not st.session_state["awaiting_approval"]:
 
 st.divider()
 
-# ================================================================
+# -------------------------------------------------------
 #  THREAD SWITCHING
-# ================================================================
+# -------------------------------------------------------
 if selected_thread:
     st.session_state["thread_id"] = selected_thread
     messages = load_conversation(selected_thread)
