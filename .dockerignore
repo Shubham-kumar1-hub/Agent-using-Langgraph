@@ -1,0 +1,50 @@
+# ---------------------------------------------------------
+#  .dockerignore
+#  Project : Multi-Tool AI Agent with Human-in-the-Loop
+# ---------------------------------------------------------
+#  Works exactly like .gitignore but for Docker.
+#  Files listed here are NOT copied into the Docker image.
+#  This keeps your image small and secure.
+# ---------------------------------------------------------
+
+# ---- Never copy API keys into the image --------------------
+.env
+.env.*
+
+# --- Python cache ------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtual environment -------------------------------------
+Agent/
+venv/
+.venv/
+env/
+ENV/
+
+# --------- Git and editor files -------------------------------------------
+.git/
+.gitignore
+.vscode/
+
+# --- Dev container (VS Code remote container config) ------------------
+.devcontainer/
+
+# ---------- Data files (mounted as volumes, not baked into image) -----------
+faiss_indexes/
+chatbot.db
+chatbot.db-shm
+chatbot.db-wal
+
+# --- Documentation -----------------------------------------------
+README.md
+
+# --- Logs ---------------------------------------------------------
+*.log
+logs/
+
+# --- OS files ---------------------------------------------------------
+.DS_Store
+Thumbs.db
