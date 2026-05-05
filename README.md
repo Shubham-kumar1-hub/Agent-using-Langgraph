@@ -1,206 +1,294 @@
-# 🤖 Multi-Utility AI Agent (LangGraph + RAG + HITL)
+# Multi-Tool AI Agent with Human-in-the-Loop
 
-A **production-style AI agent** built using **LangGraph, LangChain, and Streamlit** that combines:
+A stateful multi-tool AI agent built with LangGraph that combines RAG over PDFs, real-time stock data, web search, and financial transaction simulation — all with a Human-in-the-Loop approval system for sensitive actions.
 
-* 📄 **Document Intelligence (RAG over PDFs)**
-* 📊 **Real-time Financial Data**
-* 🧠 **Multi-step reasoning with tool usage**
-* ⏸️ **Human-in-the-Loop approvals (HITL)**
-* 💾 **Persistent memory across conversations**
-
----
-
-## 🚀 🔴 Live Demo
-
-👉 **Try the app here:**
-🔗 https://agent-using-langgraph-k5zkvjcidrcdryg9q5fxbu.streamlit.app/
-
-> ⚠️ Note: First load may take a few seconds due to cold start.
+[![Python](https://img.shields.io/badge/Python-3.12.7-blue)](https://www.python.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1.1.10-green)](https://github.com/langchain-ai/langgraph)
+[![Groq](https://img.shields.io/badge/LLM-Groq%20Llama3.3--70b-orange)](https://groq.com/)
+[![Streamlit](https://img.shields.io/badge/UI-Streamlit-red)](https://streamlit.io/)
+[![Docker](https://img.shields.io/badge/Docker-Supported-blue)](https://www.docker.com/)
 
 ---
 
-## ✨ Why This Project Stands Out
+## Live Demo
 
-Most AI chatbot projects are stateless and prompt-based.
-This project demonstrates a **real-world AI system design**:
-
-✅ Stateful execution using LangGraph
-✅ Intelligent tool orchestration
-✅ Safe automation with human approval
-✅ Persistent memory (SQLite checkpointing)
-✅ Hybrid intelligence (RAG + APIs + reasoning)
+- **App:** https://agent-using-langgraph-k5zkvjcidrcdryg9q5fxbu.streamlit.app/
+- **GitHub:** https://github.com/Shubham-kumar1-hub/Agent-using-Langgraph
 
 ---
 
-## 🏗️ Architecture Overview
+## What It Does
 
-```id="arch-diagram"
-                ┌───────────────────────────┐
-                │       Streamlit UI        │
-                │  (Chat + File Upload)     │
-                └────────────┬──────────────┘
-                             │
-                             ▼
-                ┌───────────────────────────┐
-                │      LangGraph Agent      │
-                │     (StateGraph Flow)     │
-                └────────────┬──────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        ▼                    ▼                    ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│   RAG Tool   │    │  Stock API   │    │ Web Search   │
-│ (FAISS + PDF)│    │ AlphaVantage │    │ DuckDuckGo   │
-└──────────────┘    └──────────────┘    └──────────────┘
-        │
-        ▼
-┌───────────────────────────┐
-│ Human-in-the-Loop Control │
-│ (Approve / Reject Actions)│
-└───────────────────────────┘
-        │
-        ▼
-┌───────────────────────────┐
-│ Persistent Memory (SQLite)│
-└───────────────────────────┘
+This project is a multi-tool conversational AI agent where the user can:
+
+- **Chat with their PDF** — upload any PDF and ask questions about it
+- **Get real-time stock prices** — fetch live data for any ticker symbol (AAPL, TSLA, etc.)
+- **Buy / Sell stocks** — simulate financial trades with human approval required before execution
+- **Search the web** — get current information via DuckDuckGo
+- **Do calculations** — arithmetic operations through a dedicated calculator tool
+- **Switch between conversations** — all chats are persisted and resumable
+
+---
+
+## Key Features
+
+### Human-in-the-Loop (HITL)
+The most unique feature of this project. When the agent wants to execute a stock purchase or sale, the graph **pauses completely** and waits for the user to approve or reject the action before continuing. This is implemented using LangGraph's `interrupt()` and `Command(resume=...)` pattern.
+
+```
+User: "Buy 10 shares of AAPL"
+Agent: calls purchase_stock tool
+Graph: ⏸️ PAUSED — waiting for human approval
+User: clicks ✅ Yes or ❌ No
+Graph: ▶️ RESUMES with the decision
+Agent: confirms or cancels the order
+```
+
+### RAG Pipeline
+- PDFs are uploaded via the sidebar and chunked using `RecursiveCharacterTextSplitter`
+- Chunks are embedded using `sentence-transformers/all-MiniLM-L6-v2`
+- Stored and retrieved using FAISS with **MMR (Maximum Marginal Relevance)** for diverse, non-redundant results
+- FAISS indexes are **persisted to disk** per thread — survive backend restarts
+- Responses include **page citations** so users can verify sources
+
+### Stateful Conversations
+- Every conversation is a separate **thread** with its own UUID
+- Conversation history is persisted using **SQLite checkpointing** via LangGraph
+- Threads survive page refreshes and app restarts
+- Past conversations are accessible from the sidebar
+
+### Tool Call Safety
+- Agent is limited to **10 tool calls per turn** to prevent infinite loops
+- All tool errors are handled gracefully and returned as descriptive messages
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│           Streamlit Frontend            │
+│  Sidebar: PDF upload, thread switcher   │
+│  Main: Chat UI + HITL approval banner   │
+└────────────────────┬────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────┐
+│          LangGraph Agent Graph          │
+│                                         │
+│   START → chat_node ──► tools_condition │
+│               ▲              │          │
+│               └──── tools ◄──┘          │
+└────────────────────┬────────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+   ┌─────────┐  ┌─────────┐  ┌──────────┐
+   │  Groq   │  │  FAISS  │  │  SQLite  │
+   │ Llama3.3│  │ Vectors │  │ History  │
+   └─────────┘  └─────────┘  └──────────┘
+```
+
+### Tools Available to the Agent
+
+| Tool | Description |
+|---|---|
+| `rag_tool` | Retrieves relevant chunks from the uploaded PDF |
+| `get_stock_price` | Fetches real-time stock data from Alpha Vantage |
+| `purchase_stock` | Simulates buying stocks — triggers HITL approval |
+| `sell_stock` | Simulates selling stocks — triggers HITL approval |
+| `calculator` | Performs arithmetic (add, sub, mul, div) |
+| `duckduckgo_search` | Searches the web for current information |
+
+---
+
+## Tech Stack
+
+| Category | Technology |
+|---|---|
+| LLM | Groq — Llama 3.3 70B Versatile |
+| Agent Framework | LangGraph |
+| RAG | FAISS + HuggingFace Embeddings |
+| Embeddings | sentence-transformers/all-MiniLM-L6-v2 |
+| PDF Parsing | PyPDFLoader |
+| Web Search | DuckDuckGo |
+| Stock API | Alpha Vantage |
+| Frontend | Streamlit |
+| Persistence | SQLite (conversations) + FAISS on disk (vectors) |
+| Containerization | Docker + Docker Compose |
+| Language | Python 3.12.7 |
+
+---
+
+## Project Structure
+
+```
+Agent-using-Langgraph/
+├── Agent_backend.py       # LangGraph graph, tools, RAG, HITL logic
+├── Agent_frontend.py      # Streamlit UI
+├── requirements.txt       # Python dependencies
+├── Dockerfile             # Docker image definition
+├── docker-compose.yml     # Docker Compose configuration
+├── .dockerignore          # Files excluded from Docker image
+├── .gitignore             # Files excluded from Git
+├── .env                   # API keys (never committed)
+├── faiss_indexes/         # FAISS vector stores (auto-created)
+└── chatbot.db             # SQLite conversation history (auto-created)
 ```
 
 ---
 
-## 🧠 Core Capabilities
+## Getting Started
 
-### 📄 Document Question Answering (RAG)
+### Prerequisites
+- Python 3.12.7
+- A [Groq API key](https://console.groq.com/) (free)
+- An [Alpha Vantage API key](https://www.alphavantage.co/support/#api-key) (free)
 
-* Upload PDFs per chat thread
-* FAISS-based vector search
-* Returns contextual answers with citations
+### Option 1 — Run with Docker (Recommended)
 
----
+**Step 1:** Install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-### 📊 Financial Intelligence
-
-* Real-time stock prices
-* Buy/Sell simulation with approval system
-
----
-
-### 🛠️ Tool-Oriented Reasoning
-
-The agent dynamically selects tools:
-
-* 🔎 Web Search
-* 🧮 Calculator
-* 📊 Stock API
-* 📚 PDF RAG
-
----
-
-### ⏸️ Human-in-the-Loop (HITL)
-
-Critical actions require approval:
-
-```text id="f2v8x1"
-Approve buying 10 shares of AAPL?
-```
-
----
-
-### 💾 Persistent Conversations
-
-* SQLite checkpointing
-* Multi-thread chat support
-* Survives app restarts
-
----
-
-## 🔄 Example Interactions
-
-### 📄 PDF Query
-
-```text id="m7p8q2"
-User: Summarize this document
-→ Uses RAG → Returns contextual answer
-```
-
-### 📊 Stock Query
-
-```text id="n1x7k3"
-User: Price of TSLA
-→ Calls stock API → Returns real-time data
-```
-
-### 💼 Safe Trading
-
-```text id="z9c4v5"
-User: Buy 5 shares of AAPL
-→ Requires approval → Executes if approved
-```
-
----
-
-## 📁 Project Structure
-
-```id="structure-block"
-.
-├── Agent_backend.py
-├── Agent_frontend.py
-├── requirements.txt
-├── .gitignore
-├── chatbot.db
-└── faiss_indexes/
-```
-
----
-
-## ⚙️ Setup
-
-```bash id="setup-block"
+**Step 2:** Clone the repository
+```bash
 git clone https://github.com/Shubham-kumar1-hub/Agent-using-Langgraph.git
 cd Agent-using-Langgraph
+```
+
+**Step 3:** Create your `.env` file
+```bash
+GROQ_API_KEY=your_groq_api_key_here
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+```
+
+**Step 4:** Build and run
+```bash
+docker-compose up --build
+```
+
+**Step 5:** Open your browser
+```
+http://localhost:8501
+```
+
+---
+
+### Option 2 — Run Locally
+
+**Step 1:** Clone the repository
+```bash
+git clone https://github.com/Shubham-kumar1-hub/Agent-using-Langgraph.git
+cd Agent-using-Langgraph
+```
+
+**Step 2:** Create and activate a virtual environment
+```bash
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Mac/Linux
+```
+
+**Step 3:** Install dependencies
+```bash
 pip install -r requirements.txt
+```
+
+**Step 4:** Create your `.env` file
+```
+GROQ_API_KEY=your_groq_api_key_here
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+```
+
+**Step 5:** Run the app
+```bash
 streamlit run Agent_frontend.py
 ```
 
----
-
-## 🔑 Environment Variables
-
-```env id="env-block"
-GROQ_API_KEY=your_key
-ALPHA_VANTAGE_API_KEY=your_key
+**Step 6:** Open your browser
+```
+http://localhost:8501
 ```
 
 ---
 
-## 🧩 Tech Stack
+## Docker Commands
 
-* LangGraph
-* LangChain
-* Streamlit
-* FAISS
-* HuggingFace Embeddings
-* Groq (LLaMA 3.3)
-* SQLite
+```bash
+# Build and start
+docker-compose up --build
+
+# Start in background
+docker-compose up -d
+
+# Stop
+docker-compose down
+
+# View logs
+docker-compose logs -f
+
+# Rebuild after code changes
+docker-compose up --build
+```
 
 ---
 
-## 🚀 What This Demonstrates
+## How to Use
 
-* Agent-based system design
-* Tool orchestration
-* RAG implementation
-* Human-in-the-loop workflows
-* Persistent AI systems
+**Chat normally**
+Just type any question in the chat input box.
+
+**Ask about a PDF**
+1. Upload a PDF using the sidebar file uploader
+2. Ask any question about its content — the agent will retrieve relevant chunks automatically
+
+**Get stock prices**
+```
+"What is the current price of TSLA?"
+"Show me AAPL stock data"
+```
+
+**Simulate a stock trade**
+```
+"Buy 5 shares of MSFT"
+"Sell 10 shares of GOOGL"
+```
+The app will pause and show an approval banner — click ✅ Yes or ❌ No.
+
+**Search the web**
+```
+"What are the latest AI news today?"
+"Who is the CEO of OpenAI?"
+```
+
+**Calculate**
+```
+"What is 1250 multiplied by 3.5?"
+"Divide 9500 by 4"
+```
 
 ---
 
-## 👨‍💻 Author
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | ✅ Yes | Your Groq API key from console.groq.com |
+| `ALPHA_VANTAGE_API_KEY` | ✅ Yes | Your Alpha Vantage key for stock data |
+
+---
+
+## Known Limitations
+
+- **FAISS** is an in-memory vector store — does not support multiple concurrent users at scale
+- **Streamlit** is single-threaded — not suitable for high production traffic
+- **No authentication** — all users share the same session namespace
+- **SQLite** is file-based — not suitable for distributed deployments
+
+For production scale these would be replaced with Pinecone, FastAPI, Supabase Auth, and PostgreSQL.
+
+---
+
+## Author
 
 **Shubham Kumar**
-GitHub: https://github.com/Shubham-kumar1-hub
-
----
-
-## ⭐ Support
-
-If you found this useful, consider giving it a ⭐
+- GitHub: [@Shubham-kumar1-hub](https://github.com/Shubham-kumar1-hub)
