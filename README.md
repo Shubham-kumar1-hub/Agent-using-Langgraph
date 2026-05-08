@@ -177,8 +177,8 @@ http://localhost:8501
 
 **Step 1:** Clone the repository
 ```bash
-git clone https://github.com/Shubham-kumar1-hub/Agent-using-Langgraph.git
-cd Agent-using-Langgraph
+git clone https://github.com/Shubham-kumar1-hub/Multi-Tool-AI-Agent-using-Langgraph.git
+cd Multi-Tool-AI-Agent-using-Langgraph
 ```
 
 **Step 2:** Create and activate a virtual environment
