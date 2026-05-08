@@ -65,6 +65,30 @@ Agent: confirms or cancels the order
 
 ## Architecture
 
+## Screenshots
+
+### Main Chat Interface
+
+![Main UI](D:\GenAI\Projects\Agent uisng Langgraph\images\main_ui.png)
+
+---
+
+### Human-in-the-Loop Approval
+
+![HITL Approval](D:\GenAI\Projects\Agent uisng Langgraph\images\Human-in-the-Loop Approval.png)
+
+---
+
+### Stock Price Tool
+
+![Stock Tool](D:\GenAI\Projects\Agent uisng Langgraph\images\Stock Price Tool.png)
+
+---
+
+### PDF Question Answering (RAG)
+
+![RAG Demo](D:\GenAI\Projects\Agent uisng Langgraph\images\Question Answering (RAG)1.png)
+
 ```
 ┌─────────────────────────────────────────┐
 │           Streamlit Frontend            │
