@@ -431,11 +431,15 @@ def chat_node(state: ChatState, config=None):
     messages = [system_message, *state["messages"]]
  
     response = llm_with_tools.invoke(messages, config=config)
+
+    new_tool_calls = len(response.tool_calls) if response.tool_calls else 0
+
+    updated_count = 0 if new_tool_calls == 0 else tool_call_count + new_tool_calls
  
     return {
         "messages": [response],
         "thread_id": thread_id,
-        "tool_call_count": tool_call_count + 1,
+        "tool_call_count": updated_count,
     }
  
  
