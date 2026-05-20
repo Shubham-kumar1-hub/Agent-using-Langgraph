@@ -67,36 +67,23 @@ Agent: confirms or cancels the order
 
 ## Screenshots
 
----
-
 ### Main Chat Interface
-
-![Main UI](images/main_ui.png)
+![Main UI](./images/main_ui.png.png)
 
 ---
 
 ### Human-in-the-Loop Approval
-
-![HITL Approval](images/Human-in-the-Loop Approval.png)
+![HITL Approval](./images/hitl_approval.png.png)
 
 ---
 
 ### Stock Price Tool
-
-![Stock Tool](images/Stock Price Tool.png)
+![Stock Tool](./images/stock_tool.png.png)
 
 ---
 
 ### PDF Question Answering (RAG)
-
-![RAG Demo](images/Question Answering (RAG).png)
-
----
-
-### Additional RAG Example
-
-![RAG Demo 2](images/Question Answering (RAG)1.png)
-
+![RAG Demo](./images/rag_demo1.png.png)
 ```
 ┌─────────────────────────────────────────┐
 │           Streamlit Frontend            │
